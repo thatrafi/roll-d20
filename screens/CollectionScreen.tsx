@@ -28,6 +28,15 @@ const CollectionScreen = () => {
 
     const equippedSkin = skins.find(s => s.isEquipped);
 
+    const filteredSkins = skins.filter(s => {
+        if (filter === 'All') return true;
+        if (filter === 'Favorites') return s.isEquipped;
+        if (filter === 'Neon') return s.name.includes('Neon') || s.material === 'Gas';
+        if (filter === 'Metal') return s.material === 'Metal';
+        if (filter === 'Glass') return s.material === 'Glass';
+        return s.material === filter;
+    });
+
     const handleEquip = (id: string) => {
         setSkins(skins.map(s => ({ ...s, isEquipped: s.id === id })));
     };
@@ -131,7 +140,7 @@ const CollectionScreen = () => {
 
             {/* Grid */}
             <FlatList
-                data={skins}
+                data={filteredSkins}
                 renderItem={renderSkinItem}
                 keyExtractor={(item) => item.id}
                 numColumns={2}
