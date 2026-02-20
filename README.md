@@ -42,7 +42,7 @@ Follow these steps to set up and run the project locally.
     Open your terminal or command prompt and run:
     ```bash
     git clone <repository-url>
-    cd neon-tabletop-roller
+    cd roll-d20
     ```
 
 2.  **Install Dependencies**:
