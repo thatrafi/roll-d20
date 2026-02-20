@@ -1,20 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Neon Tabletop Roller
 
-# Run and deploy your AI Studio app
+A React Native dice rolling application for tabletop RPGs, built with Expo.
 
-This contains everything you need to run your app locally.
+## Features
+- 3D-like dice rolling animations
+- Shake to roll (using device accelerometer)
+- Haptic feedback
+- Roll history and statistics
+- Dice collection with customizable profiles
+- Dark mode neon theme
 
-View your app in AI Studio: https://ai.studio/apps/drive/1kMJgL8DRZj3Pelq65ec-arisCMidTpqM
+## Prerequisites
 
-## Run Locally
+- [Node.js](https://nodejs.org/)
+- [Expo Go](https://expo.dev/client) app on your iOS or Android device (or an Android Emulator / iOS Simulator)
 
-**Prerequisites:**  Node.js
-
+## Installation
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+
+## Running the App
+
+1. Start the Expo development server:
+   ```bash
+   npx expo start
+   ```
+
+2. Scan the QR code with your phone:
+   - **Android**: Use the Expo Go app.
+   - **iOS**: Use the Camera app (requires Expo Go to be installed).
+
+## Troubleshooting
+
+If you encounter issues with dependencies, try cleaning the cache:
+```bash
+npx expo start -c
+```
