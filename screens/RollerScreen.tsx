@@ -1,55 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { History, Trash2, RotateCcw, Settings, Dices } from 'lucide-react-native';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing, withSpring, cancelAnimation } from 'react-native-reanimated';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { History, Trash2, RotateCcw, Settings } from 'lucide-react-native';
 import { Accelerometer } from 'expo-sensors';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../src/theme';
 import { useSettings } from '../src/context/SettingsContext';
+import Dice from '../src/components/Dice';
 
-const { width } = Dimensions.get('window');
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 
-const DiceD20: React.FC<{ value: number; rolling: boolean }> = ({ value, rolling }) => {
-    const rotation = useSharedValue(0);
-
-    useEffect(() => {
-        if (rolling) {
-            rotation.value = withRepeat(
-                withTiming(360, { duration: 500, easing: Easing.linear }),
-                -1,
-                false
-            );
-        } else {
-            cancelAnimation(rotation);
-            rotation.value = 0; // Reset
-            rotation.value = withSpring(45, { damping: 10, stiffness: 100 });
-        }
-    }, [rolling]);
-
-    const animatedStyle = useAnimatedStyle(() => {
-        return {
-            transform: [{ rotate: `${rotation.value}deg` }],
-        };
-    });
-
-    return (
-        <Animated.View style={[styles.diceContainer, animatedStyle]}>
-            <View style={styles.diceInner}>
-                <Text style={[styles.diceText, rolling && { opacity: 0.5 }]}>
-                    {rolling ? '...' : value}
-                </Text>
-            </View>
-        </Animated.View>
-    );
-};
+interface ActiveDie {
+    id: string;
+    type: 'd4' | 'd6' | 'd8' | 'd10' | 'd12' | 'd20' | 'd100';
+    value: number;
+    rolling: boolean;
+}
 
 const RollerScreen = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
     const { settings } = useSettings();
-    const [result, setResult] = useState(26);
+    const [dice, setDice] = useState<ActiveDie[]>([
+        { id: '1', type: 'd20', value: 20, rolling: false },
+        { id: '2', type: 'd6', value: 6, rolling: false }
+    ]);
     const [isRolling, setIsRolling] = useState(false);
-    const [diceList, setDiceList] = useState<string[]>(['d20', 'd6']);
+
+    // Calculate total result
+    const totalResult = dice.reduce((acc, die) => acc + die.value, 0);
 
     useEffect(() => {
         if (!settings.shakeToRoll) return;
@@ -61,16 +43,47 @@ const RollerScreen = ({ navigation }: any) => {
         });
         Accelerometer.setUpdateInterval(100);
         return () => subscription && subscription.remove();
-    }, [settings.shakeToRoll, isRolling]);
+    }, [settings.shakeToRoll, isRolling, dice]);
+
+    const addDie = (type: ActiveDie['type']) => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setDice([...dice, {
+            id: Date.now().toString() + Math.random().toString(),
+            type,
+            value: parseInt(type.substring(1)), // Default to max value
+            rolling: false
+        }]);
+    };
+
+    const removeDie = (id: string) => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setDice(dice.filter(d => d.id !== id));
+    };
+
+    const clearDice = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setDice([]);
+    };
+
+    const rollDieValue = (type: string) => {
+        const max = parseInt(type.substring(1));
+        return Math.floor(Math.random() * max) + 1;
+    };
 
     const handleRoll = () => {
-        if (isRolling) return;
+        if (isRolling || dice.length === 0) return;
         setIsRolling(true);
         if (settings.haptics) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+        // Set visual rolling state
+        setDice(prev => prev.map(d => ({ ...d, rolling: true })));
+
         setTimeout(() => {
-            const newTotal = Math.floor(Math.random() * 20) + 1 + Math.floor(Math.random() * 6) + 1;
-            setResult(newTotal);
+            setDice(prev => prev.map(d => ({
+                ...d,
+                value: rollDieValue(d.type),
+                rolling: false
+            })));
             setIsRolling(false);
             if (settings.haptics) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }, 800);
@@ -97,14 +110,35 @@ const RollerScreen = ({ navigation }: any) => {
             {/* Viewport */}
             <View style={styles.viewport}>
                 <View style={styles.diceArea}>
-                     {/* Simplified positioning for React Native */}
-                    <View style={{ position: 'absolute', top: '30%', left: '25%' }}>
-                        <DiceD20 value={Math.min(result, 20)} rolling={isRolling} />
-                    </View>
+                     {dice.length === 0 ? (
+                         <View style={styles.emptyState}>
+                             <Text style={styles.emptyStateText}>Add dice to roll</Text>
+                         </View>
+                     ) : (
+                         <View style={styles.diceGrid}>
+                             {dice.map((die) => (
+                                 <TouchableOpacity
+                                    key={die.id}
+                                    onPress={() => removeDie(die.id)}
+                                    activeOpacity={0.7}
+                                    style={styles.dieWrapper}
+                                >
+                                     <Dice
+                                        type={die.type}
+                                        value={die.value}
+                                        rolling={die.rolling}
+                                        size={80}
+                                    />
+                                 </TouchableOpacity>
+                             ))}
+                         </View>
+                     )}
                     
-                    {/* Big Background Number */}
+                    {/* Big Background Number (Total) */}
                     <View style={styles.backgroundNumberContainer}>
-                        <Text style={styles.backgroundNumber}>{result}</Text>
+                        <Text style={styles.backgroundNumber}>
+                            {dice.length > 0 ? totalResult : 0}
+                        </Text>
                     </View>
 
                     <View style={styles.shakeHintContainer}>
@@ -124,11 +158,14 @@ const RollerScreen = ({ navigation }: any) => {
                 {/* Result Display */}
                 <View style={styles.resultDisplay}>
                     <View>
-                        <Text style={styles.resultLabel}>Result</Text>
+                        <Text style={styles.resultLabel}>Total Result</Text>
                         <View style={styles.resultValueContainer}>
-                            <Text style={styles.resultValue}>{result}</Text>
-                            {result >= 20 && (
-                                <Text style={styles.criticalText}>CRITICAL!</Text>
+                            <Text style={styles.resultValue}>{totalResult}</Text>
+                            {dice.some(d => d.type === 'd20' && d.value === 20) && (
+                                <Text style={styles.criticalText}>CRIT!</Text>
+                            )}
+                            {dice.some(d => d.type === 'd20' && d.value === 1) && (
+                                <Text style={[styles.criticalText, { color: COLORS.danger }]}>FAIL</Text>
                             )}
                         </View>
                     </View>
@@ -145,14 +182,15 @@ const RollerScreen = ({ navigation }: any) => {
                 <View style={styles.diceSelector}>
                     <Text style={styles.sectionLabel}>Add Dice</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.diceList}>
-                        {['D4', 'D6', 'D8', 'D10', 'D12'].map((d) => (
-                            <TouchableOpacity key={d} style={styles.diceButton}>
-                                <Text style={styles.diceButtonText}>{d}</Text>
+                        {['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'].map((d) => (
+                            <TouchableOpacity
+                                key={d}
+                                style={styles.diceButton}
+                                onPress={() => addDie(d as ActiveDie['type'])}
+                            >
+                                <Text style={styles.diceButtonText}>{d.toUpperCase()}</Text>
                             </TouchableOpacity>
                         ))}
-                        <TouchableOpacity style={[styles.diceButton, styles.diceButtonSelected]}>
-                            <Text style={[styles.diceButtonText, styles.diceButtonTextSelected]}>D20</Text>
-                        </TouchableOpacity>
                     </ScrollView>
                 </View>
 
@@ -160,14 +198,14 @@ const RollerScreen = ({ navigation }: any) => {
                 <View style={[styles.actionButtons, { paddingBottom: insets.bottom + 10 }]}>
                     <TouchableOpacity
                         style={styles.trashButton}
-                        onPress={() => setDiceList([])}
+                        onPress={clearDice}
                     >
                         <Trash2 size={24} color={COLORS.text} />
                     </TouchableOpacity>
                     <TouchableOpacity
                         onPress={handleRoll}
-                        disabled={isRolling}
-                        style={[styles.rollButton, isRolling && styles.rollButtonDisabled]}
+                        disabled={isRolling || dice.length === 0}
+                        style={[styles.rollButton, (isRolling || dice.length === 0) && styles.rollButtonDisabled]}
                     >
                         <RotateCcw size={24} color={COLORS.background} />
                         <Text style={styles.rollButtonText}>{isRolling ? 'Rolling...' : 'Roll Dice'}</Text>
@@ -233,31 +271,26 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
         position: 'relative',
-    },
-    diceContainer: {
-        width: 100,
-        height: 100,
-    },
-    diceInner: {
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#2e4036', // dark slate
-        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        transform: [{ rotate: '45deg' }],
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
     },
-    diceText: {
-        color: COLORS.primary,
-        fontSize: 32,
-        fontWeight: 'bold',
-        transform: [{ rotate: '-45deg' }],
+    diceGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        gap: 16,
+        width: '80%',
+    },
+    dieWrapper: {
+        padding: 4,
+    },
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyStateText: {
+        color: 'rgba(255,255,255,0.3)',
+        fontSize: 16,
     },
     backgroundNumberContainer: {
         position: 'absolute',
@@ -380,17 +413,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    diceButtonSelected: {
-        backgroundColor: 'rgba(19, 236, 128, 0.2)',
-        borderColor: 'rgba(19, 236, 128, 0.5)',
-    },
     diceButtonText: {
         color: 'rgba(255,255,255,0.6)',
         fontSize: 18,
         fontWeight: 'bold',
-    },
-    diceButtonTextSelected: {
-        color: COLORS.primary,
     },
     actionButtons: {
         paddingHorizontal: 24,

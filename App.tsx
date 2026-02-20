@@ -5,24 +5,30 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Dices, Folder, History, Settings } from 'lucide-react-native';
-import { ProfileProvider } from './src/context/ProfileContext';
+import { ProfileProvider, useProfile } from './src/context/ProfileContext';
 import { SettingsProvider } from './src/context/SettingsContext';
 
 import RollerScreen from './screens/RollerScreen';
 import CollectionScreen from './screens/CollectionScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import CreateProfileScreen from './screens/CreateProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <SettingsProvider>
-        <ProfileProvider>
-          <StatusBar style="light" />
-          <NavigationContainer>
-            <Tab.Navigator
+const AppContent = () => {
+    const { profiles, isLoading } = useProfile();
+
+    if (isLoading) {
+        return <View style={{ flex: 1, backgroundColor: '#111814' }} />;
+    }
+
+    if (profiles.length === 0) {
+        return <CreateProfileScreen />;
+    }
+
+    return (
+        <Tab.Navigator
               screenOptions={{
             headerShown: false,
             tabBarStyle: {
@@ -69,6 +75,17 @@ export default function App() {
                 }}
               />
             </Tab.Navigator>
+    );
+};
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <SettingsProvider>
+        <ProfileProvider>
+          <StatusBar style="light" />
+          <NavigationContainer>
+             <AppContent />
           </NavigationContainer>
         </ProfileProvider>
       </SettingsProvider>
