@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
-import { Filter, Check, SlidersHorizontal } from 'lucide-react';
-import { DiceSkin } from '../types';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, Modal, TextInput, Alert, Dimensions } from 'react-native';
+import { Filter, Check, SlidersHorizontal, Save, Trash, Plus, X } from 'lucide-react-native';
+import { DiceSkin } from '../src/types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { COLORS } from '../src/theme';
+import { useProfile } from '../src/context/ProfileContext';
+
+const { width } = Dimensions.get('window');
+const COLUMN_WIDTH = (width - 48 - 16) / 2; // 24px padding * 2, 16px gap
 
 const INITIAL_SKINS: DiceSkin[] = [
     { id: '1', name: 'Neon Pulse', rarity: 'Rare', material: 'Gas', color: '#13ec80', isEquipped: true },
@@ -11,111 +18,479 @@ const INITIAL_SKINS: DiceSkin[] = [
     { id: '6', name: 'Molten Core', rarity: 'Legendary', material: 'Stone', color: '#ff5722', isEquipped: false },
 ];
 
-const CollectionScreen: React.FC = () => {
+const CollectionScreen = () => {
+    const insets = useSafeAreaInsets();
+    const { profiles, addProfile, selectProfile, deleteProfile, currentProfile } = useProfile();
     const [skins, setSkins] = useState<DiceSkin[]>(INITIAL_SKINS);
     const [filter, setFilter] = useState('All');
+    const [modalVisible, setModalVisible] = useState(false);
+    const [newProfileName, setNewProfileName] = useState('');
 
     const equippedSkin = skins.find(s => s.isEquipped);
 
+    const handleEquip = (id: string) => {
+        setSkins(skins.map(s => ({ ...s, isEquipped: s.id === id })));
+    };
+
+    const handleSaveProfile = async () => {
+        if (!newProfileName.trim()) {
+            Alert.alert('Error', 'Please enter a profile name');
+            return;
+        }
+        const currentEquipped = skins.find(s => s.isEquipped);
+        if (currentEquipped) {
+            await addProfile(newProfileName, [currentEquipped], currentEquipped.color);
+            setNewProfileName('');
+            setModalVisible(false);
+            Alert.alert('Success', 'Profile saved!');
+        }
+    };
+
+    const renderSkinItem = ({ item }: { item: DiceSkin }) => (
+        <TouchableOpacity
+            style={[
+                styles.skinItem,
+                item.isEquipped && styles.skinItemEquipped
+            ]}
+            onPress={() => handleEquip(item.id)}
+            activeOpacity={0.8}
+        >
+            {item.isEquipped && (
+                <View style={styles.checkIcon}>
+                    <Check size={14} color={COLORS.backgroundDarker} strokeWidth={3} />
+                </View>
+            )}
+
+            <View style={[styles.skinPreview, { backgroundColor: item.secondaryColor || '#000' }]}>
+                <View style={styles.gradientOverlay} />
+                <View style={[
+                    styles.diceVisual,
+                    {
+                        backgroundColor: item.color,
+                        shadowColor: item.material === 'Gas' ? item.color : '#000',
+                        shadowOpacity: item.material === 'Gas' ? 0.6 : 0.2
+                    }
+                ]}>
+                    <View style={styles.dicePip} />
+                </View>
+            </View>
+
+            <View>
+                <Text style={styles.skinName}>{item.name}</Text>
+                {item.isEquipped ? (
+                    <Text style={styles.equippedText}>Equipped</Text>
+                ) : (
+                    <Text style={styles.rarityText}>{item.rarity} • {item.material}</Text>
+                )}
+            </View>
+        </TouchableOpacity>
+    );
+
     return (
-        <div className="flex flex-col h-full bg-background-light dark:bg-background-dark overflow-hidden">
+        <View style={[styles.container, { paddingTop: insets.top }]}>
             {/* Header */}
-            <header className="flex items-center justify-between px-5 pt-8 pb-4 sticky top-0 z-20 bg-background-dark/95 backdrop-blur-md border-b border-primary/10">
-                <h1 className="text-2xl font-bold tracking-tight text-white">My Collection</h1>
-                <button className="flex items-center justify-center w-10 h-10 rounded-full bg-surface-dark/50 hover:bg-surface-dark border border-primary/20 text-primary transition-colors">
-                    <Filter size={18} />
-                </button>
-            </header>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>My Collection</Text>
+                <View style={styles.headerActions}>
+                     <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => setModalVisible(true)}
+                    >
+                        <Save size={18} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.iconButton}>
+                        <Filter size={18} color={COLORS.primary} />
+                    </TouchableOpacity>
+                </View>
+            </View>
 
             {/* Tags */}
-            <div className="flex gap-3 px-5 py-2 overflow-x-auto no-scrollbar pb-4 sticky top-[73px] z-10 bg-background-dark/95 backdrop-blur-md">
-                {['All', 'Favorites', 'Metal', 'Glass', 'Neon'].map((tag) => (
-                    <button 
-                        key={tag}
-                        onClick={() => setFilter(tag)}
-                        className={`flex shrink-0 items-center justify-center px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                            filter === tag 
-                                ? 'bg-primary text-background-dark shadow-[0_0_10px_rgba(19,236,128,0.3)]' 
-                                : 'bg-surface-dark border border-white/5 text-slate-400 hover:text-primary hover:border-primary/50'
-                        }`}
-                    >
-                        {tag}
-                    </button>
-                ))}
-            </div>
+            <View style={styles.tagsContainer}>
+                <FlatList
+                    horizontal
+                    data={['All', 'Favorites', 'Metal', 'Glass', 'Neon']}
+                    keyExtractor={(item) => item}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tagsList}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            onPress={() => setFilter(item)}
+                            style={[
+                                styles.tagButton,
+                                filter === item && styles.tagButtonActive
+                            ]}
+                        >
+                            <Text style={[
+                                styles.tagText,
+                                filter === item && styles.tagTextActive
+                            ]}>{item}</Text>
+                        </TouchableOpacity>
+                    )}
+                />
+            </View>
 
             {/* Grid */}
-            <div className="flex-1 overflow-y-auto pb-32 px-5">
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                    {skins.map((skin) => (
-                        <div 
-                            key={skin.id}
-                            className={`group relative flex flex-col gap-3 p-3 rounded-2xl bg-surface-dark transition-all active:scale-95 border ${
-                                skin.isEquipped 
-                                    ? 'border-primary shadow-[0_0_20px_rgba(19,236,128,0.15)]' 
-                                    : 'border-white/5 hover:border-primary/30'
-                            }`}
-                            onClick={() => {
-                                setSkins(skins.map(s => ({ ...s, isEquipped: s.id === skin.id })));
-                            }}
-                        >
-                            {skin.isEquipped && (
-                                <div className="absolute top-3 right-3 z-10">
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-background-dark shadow-sm">
-                                        <Check size={14} strokeWidth={3} />
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Dice Visual Placeholder */}
-                            <div className="w-full aspect-square rounded-xl relative overflow-hidden flex items-center justify-center" style={{ backgroundColor: skin.secondaryColor || '#000' }}>
-                                {/* Gradient Overlay */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-black/60"></div>
-                                
-                                {/* The 'Dice' */}
-                                <div 
-                                    className="w-2/3 h-2/3 rounded-lg border flex items-center justify-center transform group-hover:rotate-[25deg] transition-all duration-500 shadow-lg"
-                                    style={{ 
-                                        backgroundColor: skin.color, 
-                                        borderColor: 'rgba(255,255,255,0.2)',
-                                        boxShadow: skin.material === 'Gas' ? `0 0 15px ${skin.color}60` : 'none'
-                                    }}
-                                >
-                                    {/* Pip */}
-                                    <div className="w-3 h-3 rounded-full bg-white/80 shadow-sm"></div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <p className="text-white text-base font-bold leading-tight">{skin.name}</p>
-                                {skin.isEquipped ? (
-                                    <p className="text-primary text-xs font-medium uppercase tracking-wider mt-1">Equipped</p>
-                                ) : (
-                                    <p className="text-slate-400 text-xs font-medium mt-1">{skin.rarity} • {skin.material}</p>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            <FlatList
+                data={skins}
+                renderItem={renderSkinItem}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                contentContainerStyle={[styles.grid, { paddingBottom: 150 }]}
+                columnWrapperStyle={styles.columnWrapper}
+                showsVerticalScrollIndicator={false}
+            />
 
             {/* Customize Panel Floating */}
-            <div className="absolute bottom-4 left-0 right-0 p-4 z-20">
-                <div className="bg-[#1c2e24]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl shadow-black/50">
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex flex-col">
-                            <span className="text-xs font-medium text-primary uppercase tracking-wider mb-1">Selected: {equippedSkin?.name}</span>
-                            <h3 className="text-white text-lg font-bold">Customize Dice</h3>
-                        </div>
-                        <button className="bg-primary hover:bg-primary/90 text-background-dark font-bold text-sm px-5 py-2.5 rounded-xl transition-all active:scale-95 shadow-[0_0_15px_rgba(19,236,128,0.25)] flex items-center gap-2">
-                            <SlidersHorizontal size={18} />
-                            Open
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <View style={[styles.floatingPanelContainer, { paddingBottom: insets.bottom + 80 }]}>
+                <View style={styles.floatingPanel}>
+                    <View style={styles.panelContent}>
+                        <View>
+                            <Text style={styles.panelLabel}>Selected: {equippedSkin?.name}</Text>
+                            <Text style={styles.panelTitle}>Customize Dice</Text>
+                        </View>
+                        <TouchableOpacity style={styles.openButton}>
+                            <SlidersHorizontal size={18} color={COLORS.backgroundDarker} />
+                            <Text style={styles.openButtonText}>Open</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+
+            {/* Profile Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Save Profile</Text>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                <X size={24} color={COLORS.textDim} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.modalBody}>
+                            <Text style={styles.inputLabel}>Profile Name</Text>
+                            <TextInput
+                                style={styles.textInput}
+                                placeholder="e.g. Stealth Build"
+                                placeholderTextColor={COLORS.textDim}
+                                value={newProfileName}
+                                onChangeText={setNewProfileName}
+                            />
+
+                            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Saved Profiles</Text>
+                            <FlatList
+                                data={profiles}
+                                keyExtractor={(item) => item.id}
+                                style={{ maxHeight: 200 }}
+                                renderItem={({ item }) => (
+                                    <View style={styles.profileItem}>
+                                        <TouchableOpacity
+                                            style={styles.profileInfo}
+                                            onPress={() => {
+                                                // Load profile logic (simulate)
+                                                if (item.skins.length > 0) {
+                                                    handleEquip(item.skins[0].id); // Simplified: Assume profile maps to a skin id
+                                                    setModalVisible(false);
+                                                }
+                                            }}
+                                        >
+                                            <View style={[styles.profileColor, { backgroundColor: item.color }]} />
+                                            <Text style={styles.profileName}>{item.name}</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => deleteProfile(item.id)}>
+                                            <Trash size={18} color={COLORS.danger} />
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
+                            />
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.saveButton}
+                            onPress={handleSaveProfile}
+                        >
+                            <Text style={styles.saveButtonText}>Save Current Setup</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </View>
     );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: COLORS.backgroundDarker,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: COLORS.white,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    iconButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(28, 39, 33, 0.5)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(19, 236, 128, 0.2)',
+    },
+    tagsContainer: {
+        marginBottom: 16,
+    },
+    tagsList: {
+        paddingHorizontal: 24,
+        gap: 12,
+    },
+    tagButton: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
+        backgroundColor: COLORS.surface,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    tagButtonActive: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    tagText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.textSlate,
+    },
+    tagTextActive: {
+        color: COLORS.backgroundDarker,
+    },
+    grid: {
+        paddingHorizontal: 24,
+    },
+    columnWrapper: {
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    skinItem: {
+        width: COLUMN_WIDTH,
+        backgroundColor: COLORS.surface,
+        borderRadius: 16,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+        gap: 12,
+    },
+    skinItemEquipped: {
+        borderColor: COLORS.primary,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        elevation: 5,
+    },
+    checkIcon: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        zIndex: 10,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: COLORS.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    skinPreview: {
+        width: '100%',
+        aspectRatio: 1,
+        borderRadius: 12,
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+    },
+    gradientOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.2)',
+    },
+    diceVisual: {
+        width: '66%',
+        height: '66%',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ rotate: '25deg' }],
+    },
+    dicePip: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+    },
+    skinName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.white,
+    },
+    equippedText: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: COLORS.primary,
+        marginTop: 4,
+        textTransform: 'uppercase',
+    },
+    rarityText: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: COLORS.textSlate,
+        marginTop: 4,
+    },
+    floatingPanelContainer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 16,
+    },
+    floatingPanel: {
+        backgroundColor: 'rgba(28, 46, 36, 0.95)',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    panelContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    panelLabel: {
+        fontSize: 12,
+        fontWeight: '500',
+        color: COLORS.primary,
+        textTransform: 'uppercase',
+        marginBottom: 4,
+    },
+    panelTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.white,
+    },
+    openButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    openButtonText: {
+        color: COLORS.backgroundDarker,
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: COLORS.background,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        minHeight: 400,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.white,
+    },
+    modalBody: {
+        flex: 1,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: COLORS.textSlate,
+        marginBottom: 8,
+    },
+    textInput: {
+        backgroundColor: COLORS.surface,
+        borderRadius: 12,
+        padding: 16,
+        color: COLORS.white,
+        fontSize: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+    },
+    saveButton: {
+        backgroundColor: COLORS.primary,
+        padding: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginTop: 24,
+    },
+    saveButtonText: {
+        color: COLORS.backgroundDarker,
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    profileItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    profileInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    profileColor: {
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+    },
+    profileName: {
+        color: COLORS.white,
+        fontSize: 16,
+        fontWeight: '500',
+    },
+});
 
 export default CollectionScreen;
