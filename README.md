@@ -10,6 +10,7 @@ Welcome to **Neon Tabletop Roller**, a mobile application for tabletop RPG enthu
 - [Getting Started with React Native & Expo](#getting-started-with-react-native--expo)
 - [Project Structure](#project-structure)
 - [Technologies Used](#technologies-used)
+- [Contributing](#contributing)
 
 ## Introduction
 
@@ -100,6 +101,10 @@ Here's a quick look at the project's file structure:
 -   **Expo Sensors & Haptics**: for shake detection and tactile feedback.
 -   **Reanimated**: For smooth animations.
 -   **Async Storage**: For persisting data locally.
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request if you have any ideas or improvements.
 
 ---
 
