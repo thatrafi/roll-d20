@@ -1,168 +1,298 @@
-import React, { useState } from 'react';
-import { Smartphone, Volume2, Globe, Disc, RotateCcw } from 'lucide-react';
+import React from 'react';
+import { View, Text, Switch, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import Slider from '@react-native-community/slider';
+import { Smartphone, Volume2, Globe, Disc, RotateCcw } from 'lucide-react-native';
+import { useSettings } from '../src/context/SettingsContext';
+import { COLORS } from '../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const Toggle: React.FC<{ label: string; subLabel: string; icon: React.ReactNode; checked: boolean; onChange: () => void }> = ({ label, subLabel, icon, checked, onChange }) => (
-    <div className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors cursor-pointer" onClick={onChange}>
-        <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center rounded-lg bg-surface-highlight text-primary size-10 shrink-0">
+const Toggle: React.FC<{ label: string; subLabel: string; icon: React.ReactNode; checked: boolean; onChange: (val: boolean) => void }> = ({ label, subLabel, icon, checked, onChange }) => (
+    <View style={styles.toggleContainer}>
+        <View style={styles.toggleLeft}>
+            <View style={styles.iconContainer}>
                 {icon}
-            </div>
-            <div className="flex flex-col">
-                <span className="text-base font-medium text-white">{label}</span>
-                <span className="text-xs text-gray-400">{subLabel}</span>
-            </div>
-        </div>
-        <div className={`relative flex h-[30px] w-[50px] items-center rounded-full p-0.5 transition-colors duration-200 ${checked ? 'bg-primary justify-end' : 'bg-surface-highlight justify-start'}`}>
-            <div className="h-[26px] w-[26px] rounded-full bg-white shadow-sm transition-all" />
-        </div>
-    </div>
+            </View>
+            <View style={styles.labelContainer}>
+                <Text style={styles.labelText}>{label}</Text>
+                <Text style={styles.subLabelText}>{subLabel}</Text>
+            </View>
+        </View>
+        <Switch
+            trackColor={{ false: '#3e3e3e', true: COLORS.primary }}
+            thumbColor={checked ? COLORS.white : '#f4f3f4'}
+            onValueChange={onChange}
+            value={checked}
+        />
+    </View>
 );
 
-const SettingsScreen: React.FC = () => {
-    const [haptics, setHaptics] = useState(true);
-    const [sound, setSound] = useState(true);
-    const [shake, setShake] = useState(false);
-    const [gravity, setGravity] = useState(50);
-    const [bounce, setBounce] = useState(65);
+const SettingsScreen = ({ navigation }: any) => {
+    const insets = useSafeAreaInsets();
+    const { settings, updateSetting, resetSettings } = useSettings();
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-[#111814] relative z-10">
-             {/* Main Modal Look */}
-             <div className="flex-1 flex flex-col bg-[#111814] rounded-t-2xl shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)] border-t border-white/10 mt-12">
-                 {/* Drag Handle */}
-                <div className="w-full flex justify-center pt-3 pb-1">
-                    <div className="w-12 h-1.5 bg-white/20 rounded-full"></div>
-                </div>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+             <View style={styles.header}>
+                <View style={{ width: 40 }} />
+                <Text style={styles.headerTitle}>Configuration</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.doneButton}>
+                    <Text style={styles.doneText}>Done</Text>
+                </TouchableOpacity>
+            </View>
 
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
-                    <div className="w-12"></div>
-                    <h2 className="text-xl font-bold tracking-tight text-center text-white">Dice Configuration</h2>
-                    <button className="w-12 flex items-center justify-end text-primary font-semibold hover:text-primary/80 transition-colors">
-                        Done
-                    </button>
-                </div>
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}>
+                {/* General Section */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionHeader}>General</Text>
+                    <View style={styles.card}>
+                        <Toggle
+                            label="Haptic Feedback"
+                            subLabel="Feel collisions and rolls"
+                            icon={<Smartphone size={24} color={COLORS.primary} />}
+                            checked={settings.haptics}
+                            onChange={(val) => updateSetting('haptics', val)}
+                        />
+                        <View style={styles.divider} />
+                        <Toggle
+                            label="Sound Effects"
+                            subLabel="Rolling clatter sounds"
+                            icon={<Volume2 size={24} color={COLORS.primary} />}
+                            checked={settings.sound}
+                            onChange={(val) => updateSetting('sound', val)}
+                        />
+                        <View style={styles.divider} />
+                        <Toggle
+                            label="Shake to Roll"
+                            subLabel="Use accelerometer"
+                            icon={<Smartphone size={24} color={COLORS.primary} />}
+                            checked={settings.shakeToRoll}
+                            onChange={(val) => updateSetting('shakeToRoll', val)}
+                        />
+                    </View>
+                </View>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
-                    {/* General Section */}
-                    <section>
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 px-1">General</h3>
-                        <div className="flex flex-col gap-1 bg-surface-dark rounded-xl overflow-hidden border border-white/5">
-                            <Toggle 
-                                label="Haptic Feedback" 
-                                subLabel="Feel collisions and rolls" 
-                                icon={<Smartphone size={24} />} 
-                                checked={haptics} 
-                                onChange={() => setHaptics(!haptics)} 
+                {/* Physics Section */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionHeader}>Physics</Text>
+                        <View style={styles.badge}>
+                            <Text style={styles.badgeText}>Experimental</Text>
+                        </View>
+                    </View>
+
+                    <View style={[styles.card, { padding: 16, gap: 24 }]}>
+                         {/* Gravity */}
+                        <View>
+                            <View style={styles.sliderHeader}>
+                                <View style={styles.sliderLabelRow}>
+                                    <Globe size={20} color={COLORS.textSlate} />
+                                    <Text style={styles.sliderLabel}>Gravity</Text>
+                                </View>
+                                <Text style={styles.sliderValue}>{(settings.gravity/50).toFixed(1)}x</Text>
+                            </View>
+                            <Slider
+                                style={{ width: '100%', height: 40 }}
+                                minimumValue={0}
+                                maximumValue={100}
+                                value={settings.gravity}
+                                onValueChange={(val) => updateSetting('gravity', Math.round(val))}
+                                minimumTrackTintColor={COLORS.primary}
+                                maximumTrackTintColor={COLORS.surfaceHighlight}
+                                thumbTintColor={COLORS.white}
                             />
-                            <div className="h-px bg-white/5 mx-4"></div>
-                            <Toggle 
-                                label="Sound Effects" 
-                                subLabel="Rolling clatter sounds" 
-                                icon={<Volume2 size={24} />} 
-                                checked={sound} 
-                                onChange={() => setSound(!sound)} 
+                            <View style={styles.sliderLabels}>
+                                <Text style={styles.sliderMinMax}>Moon</Text>
+                                <Text style={styles.sliderMinMax}>Jupiter</Text>
+                            </View>
+                        </View>
+
+                        {/* Bounce */}
+                        <View>
+                            <View style={styles.sliderHeader}>
+                                <View style={styles.sliderLabelRow}>
+                                    <Disc size={20} color={COLORS.textSlate} />
+                                    <Text style={styles.sliderLabel}>Bounce Intensity</Text>
+                                </View>
+                                <Text style={styles.sliderValue}>{(settings.bounce/100).toFixed(2)}</Text>
+                            </View>
+                            <Slider
+                                style={{ width: '100%', height: 40 }}
+                                minimumValue={0}
+                                maximumValue={100}
+                                value={settings.bounce}
+                                onValueChange={(val) => updateSetting('bounce', Math.round(val))}
+                                minimumTrackTintColor={COLORS.primary}
+                                maximumTrackTintColor={COLORS.surfaceHighlight}
+                                thumbTintColor={COLORS.white}
                             />
-                            <div className="h-px bg-white/5 mx-4"></div>
-                            <Toggle 
-                                label="Shake to Roll" 
-                                subLabel="Use accelerometer" 
-                                icon={<Smartphone size={24} />} 
-                                checked={shake} 
-                                onChange={() => setShake(!shake)} 
-                            />
-                        </div>
-                    </section>
+                            <View style={styles.sliderLabels}>
+                                <Text style={styles.sliderMinMax}>Dull</Text>
+                                <Text style={styles.sliderMinMax}>Super Bouncy</Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
 
-                    {/* Physics Section */}
-                    <section>
-                        <div className="flex items-center justify-between mb-4 px-1">
-                            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Physics</h3>
-                            <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Experimental</span>
-                        </div>
-                        <div className="bg-surface-dark rounded-xl p-5 border border-white/5 space-y-6">
-                            {/* Gravity */}
-                            <div>
-                                <div className="flex justify-between items-end mb-2">
-                                    <label className="text-base font-medium text-white flex items-center gap-2">
-                                        <Globe size={20} className="text-gray-400" />
-                                        Gravity
-                                    </label>
-                                    <span className="text-primary font-bold font-mono">{(gravity/50).toFixed(1)}x</span>
-                                </div>
-                                <div className="relative w-full h-8 flex items-center">
-                                    <input 
-                                        type="range" 
-                                        min="0" 
-                                        max="100" 
-                                        value={gravity}
-                                        onChange={(e) => setGravity(parseInt(e.target.value))}
-                                        className="relative z-10 w-full cursor-pointer h-1"
-                                        style={{
-                                            background: `linear-gradient(to right, #13ec80 0%, #13ec80 ${gravity}%, #283930 ${gravity}%, #283930 100%)`,
-                                            borderRadius: '2px'
-                                        }}
-                                    />
-                                    {/* Custom Thumb handled via CSS in index.html, but inline styles for track gradient work well */}
-                                </div>
-                                <div className="flex justify-between text-xs text-gray-500 mt-1 font-medium">
-                                    <span>Moon</span>
-                                    <span>Jupiter</span>
-                                </div>
-                            </div>
-
-                            {/* Bounce */}
-                            <div>
-                                <div className="flex justify-between items-end mb-2">
-                                    <label className="text-base font-medium text-white flex items-center gap-2">
-                                        <Disc size={20} className="text-gray-400" />
-                                        Bounce Intensity
-                                    </label>
-                                    <span className="text-primary font-bold font-mono">{(bounce/100).toFixed(2)}</span>
-                                </div>
-                                <div className="relative w-full h-8 flex items-center">
-                                    <input 
-                                        type="range" 
-                                        min="0" 
-                                        max="100" 
-                                        value={bounce}
-                                        onChange={(e) => setBounce(parseInt(e.target.value))}
-                                        className="relative z-10 w-full cursor-pointer h-1"
-                                        style={{
-                                            background: `linear-gradient(to right, #13ec80 0%, #13ec80 ${bounce}%, #283930 ${bounce}%, #283930 100%)`,
-                                            borderRadius: '2px'
-                                        }}
-                                    />
-                                </div>
-                                <div className="flex justify-between text-xs text-gray-500 mt-1 font-medium">
-                                    <span>Dull</span>
-                                    <span>Super Bouncy</span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-
-                {/* Footer */}
-                <div className="px-6 py-6 border-t border-white/5 bg-[#111814]/50 backdrop-blur-md pb-10">
-                    <button 
-                        className="w-full py-3.5 px-4 bg-surface-highlight hover:bg-surface-highlight/80 text-gray-300 font-medium rounded-xl transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 group"
-                        onClick={() => {
-                            setHaptics(true);
-                            setSound(true);
-                            setShake(false);
-                            setGravity(50);
-                            setBounce(65);
-                        }}
-                    >
-                        <RotateCcw size={20} className="group-hover:-rotate-180 transition-transform duration-500" />
-                        Reset to Defaults
-                    </button>
-                </div>
-             </div>
-        </div>
+                <TouchableOpacity
+                    style={styles.resetButton}
+                    onPress={resetSettings}
+                >
+                    <RotateCcw size={20} color={COLORS.textSlate} />
+                    <Text style={styles.resetButtonText}>Reset to Defaults</Text>
+                </TouchableOpacity>
+            </ScrollView>
+        </View>
     );
 };
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: COLORS.background,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.white,
+    },
+    doneButton: {
+        padding: 8,
+    },
+    doneText: {
+        color: COLORS.primary,
+        fontWeight: '600',
+        fontSize: 16,
+    },
+    content: {
+        padding: 24,
+        gap: 32,
+    },
+    section: {
+        gap: 12,
+    },
+    sectionHeader: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.textSlate,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        paddingLeft: 4,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingRight: 4,
+    },
+    badge: {
+        backgroundColor: 'rgba(19, 236, 128, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+    },
+    badgeText: {
+        fontSize: 10,
+        fontWeight: '500',
+        color: COLORS.primary,
+    },
+    card: {
+        backgroundColor: COLORS.surface,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
+        overflow: 'hidden',
+    },
+    toggleContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+    },
+    toggleLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+        flex: 1,
+    },
+    iconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        backgroundColor: COLORS.surfaceHighlight,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    labelContainer: {
+        flex: 1,
+    },
+    labelText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: COLORS.white,
+    },
+    subLabelText: {
+        fontSize: 12,
+        color: COLORS.textSlate,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        marginHorizontal: 16,
+    },
+    sliderHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        marginBottom: 8,
+    },
+    sliderLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    sliderLabel: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: COLORS.white,
+    },
+    sliderValue: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
+        fontFamily: 'monospace',
+    },
+    sliderLabels: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 4,
+    },
+    sliderMinMax: {
+        fontSize: 12,
+        color: COLORS.textSlate,
+        fontWeight: '500',
+    },
+    resetButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        padding: 16,
+        backgroundColor: COLORS.surfaceHighlight,
+        borderRadius: 12,
+    },
+    resetButtonText: {
+        color: COLORS.textSlate,
+        fontWeight: '500',
+        fontSize: 16,
+    },
+});
 
 export default SettingsScreen;
